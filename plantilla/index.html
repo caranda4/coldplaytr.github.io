@@ -257,16 +257,6 @@
             color: #007bff;
         }
 
-        #fractalCanvas {
-            display: block;
-            border: 2px solid white;
-            background: black;
-        }
-         
-        #audioFile {
-            margin-top: 10px;
-        }
-
     </style>
     <script>
         function copyCode(button) {
@@ -309,103 +299,25 @@
             </div>
         </div>
     </nav>
-  <div class="content-container">
-    <br><br><br><br><input type="file" id="audioFile" accept="audio/*"><br><br>
-  <canvas id="fractalCanvas" width="500" height="500"></canvas>
-</div>
-  <script>
-    const audioFileInput = document.getElementById('audioFile');
-    const canvas = document.getElementById('fractalCanvas');
-    const ctx = canvas.getContext('2d');
-    let audioContext, audioSource, analyser, dataArray, bufferLength;
 
-    function drawBuddhabrotFractal(brightness, time) {
-      const maxIter = 500;
-      const width = canvas.width;
-      const height = canvas.height;
-      const imageData = ctx.createImageData(width, height);
-      const data = imageData.data;
+    <!-- Contingut principal -->
+    <div class="content-container">
+        
 
-      // Número de puntos para densidad visual
-      for (let i = 0; i < 1500; i++) {
-        const cx = (Math.random() - 0.5) * 3; 
-        const cy = (Math.random() - 0.5) * 3;
-        let zx = cx, zy = cy;
-        let path = [];
-        let iter = 0;
 
-        while (iter < maxIter && zx * zx + zy * zy < 4) {
-          path.push([zx, zy]);
-          const xtemp = zx * zx - zy * zy + cx;
-          zy = 2 * zx * zy + cy;
-          zx = xtemp;
-          iter++;
-        }
 
-        if (zx * zx + zy * zy >= 4) {
-          path.forEach(([px, py], index) => {
-            // Normalizamos coordenadas al canvas
-            const x = Math.floor((px / 3 + 0.5) * width);
-            const y = Math.floor((py / 3 + 0.5) * height);
 
-            if (x >= 0 && x < width && y >= 0 && y < height) {
-              const idx = (y * width + x) * 4;
 
-              // Colores dinámicos basados en audio y tiempo
-              const r = (brightness * 2 + index) % 255;
-              const g = (time * 0.1 + index * 3) % 255;
-              const b = (brightness + index * 5) % 255;
 
-              data[idx]     = Math.min(255, data[idx] + r);
-              data[idx + 1] = Math.min(255, data[idx + 1] + g);
-              data[idx + 2] = Math.min(255, data[idx + 2] + b);
-              data[idx + 3] = 255;
-            }
-          });
-        }
-      }
 
-      ctx.putImageData(imageData, 0, 0);
-    }
 
-    function animateFractal(time) {
-      if (analyser) {
-        analyser.getByteFrequencyData(dataArray);
-        const brightness = dataArray.reduce((a, b) => a + b) / bufferLength;
 
-        // Fondo semitransparente para efecto "trail"
-        ctx.fillStyle = "rgba(0,0,0,0.2)";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+    </div>
 
-        drawBuddhabrotFractal(brightness, time);
-      }
-      requestAnimationFrame(animateFractal);
-    }
-
-    audioFileInput.addEventListener('change', async function(event) {
-      const file = event.target.files[0];
-      if (!file) return;
-
-      const audioData = URL.createObjectURL(file);
-      const audio = new Audio(audioData);
-      audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      audioSource = audioContext.createMediaElementSource(audio);
-      analyser = audioContext.createAnalyser();
-      analyser.fftSize = 256;
-      bufferLength = analyser.frequencyBinCount;
-      dataArray = new Uint8Array(bufferLength);
-
-      audioSource.connect(analyser);
-      analyser.connect(audioContext.destination);
-      audio.play();
-
-      animateFractal();
-    });
-  </script>
-  
     <!-- Scripts necessaris -->
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/2.11.8/umd/popper.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js"></script>
-  </body>
+</body>
 </html>
