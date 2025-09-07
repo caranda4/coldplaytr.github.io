@@ -270,7 +270,11 @@
           background: rgba(0,0,0,0.8); 
           color: white;
         }
-   
+
+        #error {
+          color: red; font-weight: bold; margin-top: 20px;
+        }
+  
     </style>
    
     <script>
@@ -319,93 +323,112 @@
     <!-- Contingut principal -->
     <div class="content-container">
 
-    <h1>🎵 Coldplay per emocions 🎵</h1>
-      <p>Somriu, posa’t seriós o mostra sorpresa… i sonarà Coldplay!</p>
+  </style>
+  <div id="loading-screen">
+    <p>Carregant models, si us plau, espera…</p>
+  </div>
+  <div id="info">
+    <span class="label">Expressió:</span>
+    <div id="sentiment-row">
+      <span id="emocio">-</span> | <span id="intensitat">-</span>
+    </div>
+    <div id="error"></div>
+  </div>
 
-      <video id="webcam" autoplay playsinline width="300" height="200"></video>
-      <div id="label-container"></div>
+  <!-- Cançons -->
+  <audio id="happy" src="songs/viva_la_vida.mp3"></audio>
+  <audio id="sad" src="songs/fix_you.mp3"></audio>
+  <audio id="angry" src="songs/politik.mp3"></audio>
+  <audio id="fearful" src="songs/midnight.mp3"></audio>
+  <audio id="surprised" src="songs/adventure_of_a_lifetime.mp3"></audio>
+  <audio id="disgusted" src="songs/clocks.mp3"></audio>
+  <audio id="neutral" src="songs/the_scientist.mp3"></audio>
 
-      <!-- Cançons (posar els teus mp3 aquí o links) -->
-      <audio id="felicitat" src="songs/viva_la_vida.mp3"></audio>
-      <audio id="tristesa" src="songs/fix_you.mp3"></audio>
-      <audio id="sorpresa" src="songs/adventure_of_a_lifetime.mp3"></audio>
-      <audio id="ira" src="songs/politik.mp3"></audio>
-      <audio id="neutralitat" src="songs/politik.mp3"></audio>
-      <audio id="fastic" src="songs/politik.mp3"></audio>
-        
-      <script type="text/javascript">
-        const URL = "https://teachablemachine.withgoogle.com/models/YOUR_MODEL_URL/"; 
-        let model, webcam, labelContainer, maxPredictions;
+  <script>
+    let faceapi, detections = [], video;
+    let currentSong = null;
 
-        async function init() {
-          const modelURL = URL + "model.json";
-          const metadataURL = URL + "metadata.json";
+    const sentimentsCatala = {
+      happy: 'Feliç',
+      sad: 'Trist',
+      angry: 'Enfadat',
+      fearful: 'Por',
+      surprised: 'Sorprès',
+      disgusted: 'Fàstic',
+      neutral: 'Neutral'
+    };
 
-          // Càrrega del model
-          model = await tmImage.load(modelURL, metadataURL);
-          maxPredictions = model.getTotalClasses();
+    async function setup() {
+      createCanvas(640, 480);
 
-          // Webcam
-          const flip = true;
-          webcam = new tmImage.Webcam(300, 200, flip);
-          await webcam.setup();
-          await webcam.play();
-          window.requestAnimationFrame(loop);
+      try {
+        // 🔑 Petició explícita de permisos abans de crear el capture
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video = createCapture(VIDEO);
+        video.size(320, 240);
+        video.hide();
 
-          document.getElementById("webcam").appendChild(webcam.canvas);
-          labelContainer = document.getElementById("label-container");
+        const options = { withLandmarks: false, withExpressions: true };
+        faceapi = ml5.faceApi(video, options, () => faceapi.detect(gotResults));
+      } catch (err) {
+        document.getElementById("error").textContent = 
+          "❌ Error: No s'ha pogut accedir a la càmera. Dona permisos i recarrega la pàgina.";
+        console.error("Error d'accés a la càmera:", err);
+      }
+    }
+
+    function gotResults(err, result) {
+      if (err) console.error(err);
+      else detections = result;
+
+      const load = document.getElementById('loading-screen');
+      if (load) load.remove();
+
+      faceapi.detect(gotResults);
+    }
+
+    function draw() {
+      background(0);
+      if (video) {
+        image(video, 0, 0, width, height);
+      }
+
+      let label = 'neutral', intensity = 0.0;
+
+      if (detections.length) {
+        const expr = detections[0].expressions;
+        label = Object.keys(expr).reduce((a, b) => expr[a] > expr[b] ? a : b);
+        intensity = expr[label];
+        if (intensity < 0.5) {
+          label = 'neutral';
         }
+      }
 
-        async function loop() {
-          webcam.update();
-          await predict();
-          window.requestAnimationFrame(loop);
-        }
+      updateInfo(label, intensity);
+      playSong(label);
+    }
 
-        // Agafem l’emoció amb més probabilitat
-          let highest = prediction[0];
-          for (let i = 1; i < prediction.length; i++) {
-            if (prediction[i].probability > highest.probability) {
-              highest = prediction[i];
-            }
-          }
+    function updateInfo(label, i) {
+      const emocioCat = sentimentsCatala[label] || label;
+      const percent = Math.round(i * 100);
+      document.getElementById('emocio').textContent = emocioCat;
+      document.getElementById('intensitat').textContent = percent + '%';
+    }
 
-          // Definim un llindar mínim de confiança
-          const threshold = 0.60; // 70%
-          let detectedEmotion = highest.probability >= threshold ? highest.className : "Neutralitat";
+    function playSong(label) {
+      const song = document.getElementById(label);
+      if (!song) return;
 
-          labelContainer.innerHTML = "Emoció: " + detectedEmotion;
-
-          // Pausa totes les cançons abans de posar la nova
-          document.querySelectorAll("audio").forEach(a => {
-            a.pause();
-            a.currentTime = 0;
-          });
-
-          // Dependrà del nom de la classe del model
-          if (highest.className === "Alegria") {
-            document.getElementById("felicitat").play();
-          } 
-            else if (highest.className === "Tristesa") {
-            document.getElementById("tristesa").play();
-          } 
-            else if (highest.className === "Sorpresa") {
-            document.getElementById("sorpresa").play();
-          } 
-            else if (highest.className === "Ira") {
-            document.getElementById("ira").play();
-          }
-            else if (highest.className === "Neutral") {
-            document.getElementById("neutralitat").play();
-          }
-            else if (highest.className === "Fàstic") {
-            document.getElementById("fastic").play();
-          }
-        }
-
-        init();
-      </script>
-       
+      if (currentSong && currentSong !== song) {
+        currentSong.pause();
+        currentSong.currentTime = 0;
+      }
+      if (song.paused) {
+        song.play();
+        currentSong = song;
+      }
+    }
+  </script>       
     </div>
 
     <!-- Scripts necessaris -->
@@ -414,6 +437,8 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
     <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.min.js"></script>
+    <script src="https://unpkg.com/ml5@0.12.2/dist/ml5.min.js"></script>
     
 </body>
 </html>
