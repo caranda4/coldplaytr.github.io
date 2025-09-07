@@ -270,7 +270,11 @@
           background: rgba(0,0,0,0.8); 
           color: white;
         }
-   
+
+        #error {
+          color: red; font-weight: bold; margin-top: 20px;
+        }
+  
     </style>
    
     <script>
@@ -319,16 +323,16 @@
     <!-- Contingut principal -->
     <div class="content-container">
 
-    <body>
+  </style>
   <div id="loading-screen">
     <p>Carregant models, si us plau, espera…</p>
   </div>
   <div id="info">
     <span class="label">Expressió:</span>
     <div id="sentiment-row">
-      <span id="emocio">-</span> | 
-      <span id="intensitat">-</span>
+      <span id="emocio">-</span> | <span id="intensitat">-</span>
     </div>
+    <div id="error"></div>
   </div>
 
   <!-- Cançons -->
@@ -341,55 +345,60 @@
   <audio id="neutral" src="songs/the_scientist.mp3"></audio>
 
   <script>
-    let faceapi, detections = [], video;
-    let currentSong = null;
-
-    const sentimentsCatala = {
-      happy: 'Feliç',
-      sad: 'Trist',
-      angry: 'Enfadat',
-      fearful: 'Por',
-      surprised: 'Sorprès',
-      disgusted: 'Fàstic',
-      neutral: 'Neutral'
-    };
-
     function setup() {
-      noCanvas();
-      video = createCapture(VIDEO);
-      video.size(320, 240);
-      video.hide();
+  createCanvas(640, 480);
 
-      const options = { withLandmarks: false, withExpressions: true };
-      faceapi = ml5.faceApi(video, options, () => faceapi.detect(gotResults));
+  navigator.mediaDevices.getUserMedia({ video: true }).then(stream => {
+    video = createCapture(VIDEO);
+    video.size(320, 240);
+    video.hide();
+
+    const options = { withLandmarks: false, withExpressions: true };
+    faceapi = ml5.faceApi(video, options, modelReady);
+  }).catch(err => {
+    document.getElementById("error").textContent = 
+      "❌ No s'ha pogut accedir a la càmera. Dona permisos i recarrega la pàgina.";
+    console.error("Error accés càmera:", err);
+  });
+}
+
+function modelReady() {
+  console.log("✅ Model carregat!");
+  const load = document.getElementById('loading-screen');
+  if (load) load.remove(); // 👈 Ara es treu aquí
+  faceapi.detect(gotResults);
+}
+
+function gotResults(err, result) {
+  if (err) {
+    console.error(err);
+    return;
+  }
+  detections = result;
+  faceapi.detect(gotResults);
+}
+
+function draw() {
+  background(0);
+  if (video) image(video, 0, 0, width, height);
+
+  let label = 'neutral', intensity = 0.0;
+
+  if (detections.length) {
+    const expr = detections[0].expressions;
+    label = Object.keys(expr).reduce((a, b) => expr[a] > expr[b] ? a : b);
+    intensity = expr[label];
+
+    // 🔑 Baixem el llindar a 0.25 perquè no sigui sempre neutral
+    if (intensity < 0.25) {
+      label = 'neutral';
     }
+  }
 
-    function gotResults(err, result) {
-      if (err) console.error(err);
-      else detections = result;
+  updateInfo(label, intensity);
+  playSong(label);
+}
 
-      const load = document.getElementById('loading-screen');
-      if (load) load.remove();
-
-      faceapi.detect(gotResults);
-    }
-
-    function draw() {
-      let label = 'neutral', intensity = 0.0;
-
-      if (detections.length) {
-        const expr = detections[0].expressions;
-        label = Object.keys(expr).reduce((a, b) => expr[a] > expr[b] ? a : b);
-        intensity = expr[label];
-        // Si cap emoció és prou forta (<0.5), posem "neutral"
-        if (intensity < 0.5) {
-          label = 'neutral';
-        }
-      }
-
-      updateInfo(label, intensity);
-      playSong(label);
-    }
 
     function updateInfo(label, i) {
       const emocioCat = sentimentsCatala[label] || label;
@@ -411,9 +420,7 @@
         currentSong = song;
       }
     }
-  </script>
-</body>
-      
+  </script>       
     </div>
 
     <!-- Scripts necessaris -->
